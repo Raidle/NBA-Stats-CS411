@@ -1,19 +1,19 @@
-# team000-sample
+# team020
 
 ## Basic Information
 
 |   Info      |        Description     |
 | ----------- | ---------------------- |
-| TeamID      |        Team-000        |
-| TeamName    |         sample         |
-| Captain     |       Abdu Alawini     |
-| Captain     |  alawini@illinois.edu  |
-| Member1     |  Shadman Saqib Eusuf   |
-| Member1     |  seusuf2@illinois.edu  |
-| Member2     |     Aryaman Nasare     |
-| Member2     |  nasare2@illinois.edu  |
-| Member3     |                        |
-| Member3     |                        |
+| TeamID      |        Team-020        |
+| TeamName    |         bigOenergy     |
+| Captain     |      Alexis Alvarez    |
+| Captain     |  aalva32@illinois.edu  |
+| Member1     |       Diego Nieto      |
+| Member1     |   dniet2@illinois.edu  |
+| Member2     |     Eldiare      |
+| Member2     | eldiare2@illinois.edu  |
+| Member3     |      Jovani Trejo      |
+| Member3     |  jtrej7@illinois.edu   |
 
 ## Project Information
 
