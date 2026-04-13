@@ -1,10 +1,15 @@
 import pymysql
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DB_CONFIG = {
-    "host": "34.16.1.113", 
-    "user": "team020user",
-    "password": "bigOenergy",
-    "database": "nba_analytics",
+    "host": os.getenv("DB_HOST"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
     "cursorclass": pymysql.cursors.DictCursor
 }
 
@@ -13,6 +18,7 @@ DB_CONFIG = {
 
 def get_connection():
     return pymysql.connect(**DB_CONFIG)
+
 
 def run_query(sql, params=None):
     conn = get_connection()
