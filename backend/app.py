@@ -9,7 +9,6 @@ app = Flask(__name__)
 # This line says "it's okay, let port 3000 talk to me"
 CORS(app)
 
-
 @app.route('/')
 def index():
     return "Hello World!"
