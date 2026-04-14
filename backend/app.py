@@ -11,7 +11,7 @@ CORS(app)
 
 @app.route('/')
 def index():
-    return "Hello World!"
+    return "<h1>Backend is UP!</h1>"
 
 # ROUTE 1: Get all players (basic)
 @app.route("/api/players")
@@ -70,7 +70,8 @@ def top_scorers():
         HAVING AVG(pgs.points) > (
         SELECT AVG(points) FROM PlayerGameStats
         )
-        ORDER BY avgPoints DESC;
+        ORDER BY avgPoints DESC
+        LIMIT 50;
     """
     rows = run_query(sql)
     return jsonify(rows)
