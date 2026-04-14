@@ -77,7 +77,7 @@ def top_scorers():
 
 
 # ADVANCED QUERY 3: 
-@app.route("/api/players/team-avg-score-away")
+@app.route("/api/teams/home-away")
 def team_avg_score():
     sql = """
     SELECT 
@@ -104,6 +104,6 @@ def team_avg_score():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8000)
 
 

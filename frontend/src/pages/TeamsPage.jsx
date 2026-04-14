@@ -27,10 +27,11 @@ const styles = {
 };
 
 const columns = [
-  { key: "name", label: "Team" },
-  { key: "gameType", label: "Home / Away" },
-  { key: "wins", label: "Wins" },
-  { key: "avgMargin", label: "Avg Margin" },
+  { key: "teamName", label: "Team" },
+  { key: "city", label: "City" },
+  { key: "avgHomeScore", label: "Avg Home Score" },
+  { key: "avgAwayScore", label: "Avg Away Score" },
+  { key: "homeAwayDiff", label: "Home-Away Diff" },
 ];
 
 function TeamsPage() {

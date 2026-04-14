@@ -1,18 +1,3 @@
-/*
-  PlayersPage.jsx - Player Search + Top Scorers
-
-  THIS IS THE MOST IMPORTANT FILE TO UNDERSTAND.
-  It demonstrates the two core React concepts you need:
-
-  1. useState  → "remember something" (like a variable that triggers re-render)
-  2. useEffect → "do something when the page loads" (like fetching data)
-
-  The flow:
-  - Page loads → useEffect fires → fetch("/api/players/top-scorers") 
-    → Flask runs your Query 1 → returns JSON → setPlayers(data) 
-    → React re-renders the table with data
-*/
-
 import React, { useState, useEffect } from "react";
 import StatsTable from "../components/StatsTable";
 
@@ -81,125 +66,50 @@ const searchColumns = [
   { key: "bodyWeightLbs", label: "Weight (lbs)" },
 ];
 
-function PlayersPage() {
-  /*
-    useState explained:
-    
-    const [players, setPlayers] = useState([]);
-    
-    - "players" is the current value (starts as empty array [])
-    - "setPlayers" is the function to UPDATE that value
-    - When you call setPlayers(newData), React re-renders the component
-    
-    Think of it like a whiteboard:
-    - "players" = what's written on the board right now
-    - "setPlayers" = erasing and writing something new
-    - React = the person watching the board who updates the screen when it changes
-  */
+export default function PlayersPage() {
   const [players, setPlayers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [view, setView] = useState("topScorers"); // "topScorers" or "search"
+  const [loading, setLoading] = useState(true);
 
-  /*
-    useEffect explained:
-
-    useEffect(() => { ... }, [view]);
-
-    - The function inside runs AFTER the component renders
-    - The [view] at the end means "re-run this whenever 'view' changes"
-    - If you used [] (empty array), it would run only ONCE on page load
-
-    Think of it like a recipe instruction:
-    "After setting up the kitchen, go fetch the ingredients."
-    The [view] part says: "Also re-fetch if the customer changes their order."
-  */
   useEffect(() => {
-    if (view === "topScorers") {
-      fetchTopScorers();
-    }
-  }, [view]);
+    fetch("/api/players/top-scorers")
+      .then(res => res.json())
+      .then(data => {
+        setPlayers(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
 
-  // Fetch top scorers from Flask (your Query 1)
-  async function fetchTopScorers() {
-    setLoading(true);
-    try {
-      /*
-        fetch() sends an HTTP request to your Flask backend.
-        
-        Why "/api/players/top-scorers" without "http://localhost:5000"?
-        Because of the "proxy" setting in package.json — React automatically
-        forwards requests to Flask during development.
-      */
-      const response = await fetch("/api/players/top-scorers");
-      const data = await response.json();
-      setPlayers(data);  // This triggers React to re-render with the new data
-    } catch (error) {
-      console.error("Failed to fetch top scorers:", error);
-      setPlayers([]);
-    }
-    setLoading(false);
-  }
-
-  // Search players by name
-  async function handleSearch() {
-    if (!searchTerm.trim()) return;
-    setLoading(true);
-    setView("search");
-    try {
-      const response = await fetch(
-        `/api/players/search?name=${encodeURIComponent(searchTerm)}`
-      );
-      const data = await response.json();
-      setPlayers(data);
-    } catch (error) {
-      console.error("Failed to search players:", error);
-      setPlayers([]);
-    }
-    setLoading(false);
-  }
+  if (loading) return <p>Loading...</p>;
 
   return (
     <div>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Players</h1>
-        <p style={styles.subtitle}>
-          {view === "topScorers"
-            ? "Players averaging above the league-wide scoring average (Advanced Query 1)"
-            : `Search results for "${searchTerm}"`}
-        </p>
-      </div>
-
-      {/* Search bar + view toggle buttons */}
-      <div style={styles.searchRow}>
-        <input
-          style={styles.input}
-          type="text"
-          placeholder="Search by player name..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          // Allow pressing Enter to search
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-        />
-        <button style={styles.button(false)} onClick={handleSearch}>
-          Search
-        </button>
-        <button
-          style={styles.button(view === "topScorers")}
-          onClick={() => setView("topScorers")}
-        >
-          Top Scorers
-        </button>
-      </div>
-
-      {/* The StatsTable component does all the heavy lifting */}
-      <StatsTable
-        columns={view === "topScorers" ? topScorerColumns : searchColumns}
-        data={players}
-        loading={loading}
-      />
+      <h1>Top Scorers</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Team</th>
+            <th>PPG</th>
+            <th>RPG</th>
+            <th>APG</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.map(p => (
+            <tr key={p.playerId}>
+              <td>{p.firstName} {p.lastName}</td>
+              <td>{p.teamName}</td>
+              <td>{p.avgPoints}</td>
+              <td>{p.avgRebounds}</td>
+              <td>{p.avgAssists}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
-
-export default PlayersPage;
