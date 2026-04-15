@@ -26,7 +26,6 @@ def get_players():
     return jsonify(rows)
 
 
-
 # ADVANCED QUERY 1: 
 @app.route("/api/players/leader-board")
 def leader_board():
@@ -101,6 +100,7 @@ def team_avg_score():
     """
     rows = run_query(sql)
     return jsonify(rows)
+
 
 
 
