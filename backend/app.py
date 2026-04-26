@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from db import run_query
 
@@ -102,6 +102,20 @@ def team_avg_score():
     return jsonify(rows)
 
 
+# KEYWORD SEARCH -> Player Search by name
+@app.route("/api/players/search")
+def player_search():
+    name = request.args.ge("name", "")
+    sql = """
+        SELECT playerId, firstName, lastName, heightInches, bodyWeightLbs
+        FROM Player
+        WHERE firstName LIKE %s OR lastName LIKE %s
+        ORDER BY lastName, firstName
+        LIMIT 15
+    """
+    wildcard = f"%{name}"
+    rows = run_query(sql, (wildcard, wildcard))
+    return jsonify(rows)
 
 
 if __name__ == '__main__':
