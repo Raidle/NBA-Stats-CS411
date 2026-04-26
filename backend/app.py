@@ -4,10 +4,21 @@ from db import run_query
 
 app = Flask(__name__)
 # CORS = "Cross-Origin Resource Sharing"
-# React runs on port 3000, Flask on port 5000 - they're different "origins"
-# Without CORS, the browser blocks React from talking to Flask (security feature)
-# This line says "it's okay, let port 3000 talk to me"
-CORS(app)
+# Allow common local frontend origins used by React (3000) and Vite (5173),
+# including localhost and 127.0.0.1 which the browser treats as different origins.
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CORS(
+    app,
+    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
 
 @app.route('/')
 def index():
@@ -20,11 +31,16 @@ def get_players():
         SELECT playerId, firstName, lastName, heightInches, bodyWeightLbs
         FROM Player
         ORDER BY lastName, firstName
-        LIMIT 50
     """
     rows = run_query(sql)
-    return jsonify(rows)
-
+    payload = [{
+        "playerId": row["playerId"],
+        "firstName": row["firstName"],
+        "lastName": row["lastName"],
+        "heightInches": row["heightInches"],
+        "bodyWeightLbs": row["bodyWeightLbs"]
+    } for row in rows]
+    return jsonify(payload)
 
 # ADVANCED QUERY 1: 
 @app.route("/api/players/leader-board")
@@ -44,7 +60,14 @@ def leader_board():
         ORDER BY avg_points DESC;  
     """
     rows = run_query(sql)
-    return jsonify(rows)
+    payload = [{
+        "playerId": row["playerId"],
+        "firstName": row["firstName"],
+        "lastName": row["lastName"],
+        "gamesPlayed": row["games_played"],
+        "avgPoints": row["avg_points"]
+    } for row in rows]
+    return jsonify(payload)
 
 
 # ADVANCED QUERY 2: Players averaging above the league-wide average in points, with their team info
@@ -73,7 +96,17 @@ def top_scorers():
         LIMIT 50;
     """
     rows = run_query(sql)
-    return jsonify(rows)
+    payload = [{
+        "playerId": row["playerId"],
+        "firstName": row["firstName"],
+        "lastName": row["lastName"],
+        "teamName": row["teamName"],
+        "gamesPlayed": row["gamesPlayed"],
+        "avgPoints": row["avgPoints"],
+        "avgRebounds": row["avgRebounds"],
+        "avgAssists": row["avgAssists"]
+    } for row in rows]
+    return jsonify(payload)
 
 
 # ADVANCED QUERY 3: 
@@ -99,26 +132,14 @@ def team_avg_score():
     ORDER BY homeAwayDiff DESC; 
     """
     rows = run_query(sql)
-    return jsonify(rows)
-
-
-# KEYWORD SEARCH -> Player Search by name
-@app.route("/api/players/search")
-def player_search():
-    name = request.args.ge("name", "")
-    sql = """
-        SELECT playerId, firstName, lastName, heightInches, bodyWeightLbs
-        FROM Player
-        WHERE firstName LIKE %s OR lastName LIKE %s
-        ORDER BY lastName, firstName
-        LIMIT 15
-    """
-    wildcard = f"%{name}"
-    rows = run_query(sql, (wildcard, wildcard))
-    return jsonify(rows)
-
-
-if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+    payload = [{
+        "teamId": row["teamId"],
+        "teamName": row["teamName"],
+        "city": row["city"],
+        "avgHomeScore": row["avgHomeScore"],
+        "avgAwayScore": row["avgAwayScore"],
+        "homeAwayDiff": row["homeAwayDiff"]
+    } for row in rows]
+    return jsonify(payload)
 
 
