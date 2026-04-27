@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-from db import run_query
+from db import run_query, get_connection
 
 app = Flask(__name__)
 # CORS = "Cross-Origin Resource Sharing"
@@ -164,6 +164,39 @@ def search_players():
         "bodyWeightLbs": row["bodyWeightLbs"]
     } for row in rows]
     return jsonify(payload)
+
+
+# STORED PROCEDURE: Geting a report for a player
+@app.route("/api/players/report")
+def player_report():
+    name = request.args.get("name", "")
+    conn = get_connection()
+    
+    try:
+        with conn.cursor() as cursor:
+            # Find the player by name
+            cursor.execute("""
+                SELECT playerId FROM Player
+                WHERE firstName LIKE %s OR lastName LIKE %s
+                LIMIT 1
+            """, (f"%{name}%", f"%{name}%"))
+            player = cursor.fetchone()
+            
+            if not player:
+                return jsonify({"error": "Player not found"}), 404
+            
+            # Calling the Stored Procedure from GCP MySQL
+            cursor.callproc("GetPlayerPerformance", (player["playerId"],))
+            career_stats = cursor.fetchall()
+            cursor.nextset()
+            team_comparison = cursor.fetchall()
+        return jsonify({
+            "careerStats": career_stats,
+            "teamComparison": team_comparison
+        })
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)
