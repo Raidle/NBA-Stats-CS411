@@ -143,3 +143,28 @@ def team_avg_score():
     return jsonify(payload)
 
 
+# Keyword Search: Search Player by PlayerName[firstName, lastName]
+@app.route("/api/players/search")
+def search_players():
+    name = request.args.get("name", "")
+    sql = """
+        SELECT playerId, firstName, lastName, heightInches, bodyWeightLbs
+        FROM Player
+        WHERE firstName LIKE %s OR lastName LIKE %s
+        ORDER BY lastName, firstName
+        LIMIT 50
+    """
+    wildcard = f"%{name}%"
+    rows = run_query(sql, (wildcard, wildcard))
+    payload = [{
+        "playerId": row["playerId"],
+        "firstName": row["firstName"],
+        "lastName": row["lastName"],
+        "heightInches": row["heightInches"],
+        "bodyWeightLbs": row["bodyWeightLbs"]
+    } for row in rows]
+    return jsonify(payload)
+
+if __name__ == '__main__':
+    app.run(debug=True, port=8000)
+    
