@@ -25,7 +25,8 @@ export const Navbar = (): React.JSX.Element => {
         { path: '/leaderboard', label: 'Leaderboard' },
         { path: '/top-scorers', label: 'Top Scorers' },
         { path: '/players', label: 'All Players' },
-        { path: '/games', label: 'Games' }
+        { path: '/games', label: 'Games' },
+        { path: '/report', label: 'Get Player Report' }
     ];
 
     return (
