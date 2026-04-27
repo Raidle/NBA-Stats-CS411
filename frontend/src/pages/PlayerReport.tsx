@@ -35,6 +35,7 @@ interface ReportResponse {
 export const PlayerReport = (): React.JSX.Element => {
     const [nameInput, setNameInput] = useState<string>('')
     const [searchName, setSearchName] = useState<string>('')
+    const [pressed, setPressed] = useState<boolean>(false)
 
     const { isPending: loading, data, error } = useQuery<ReportResponse>({
         queryKey: ['playerReport', searchName],
@@ -46,6 +47,7 @@ export const PlayerReport = (): React.JSX.Element => {
     })
 
     const handleSearch = (): void => {
+        if (!pressed) setPressed(true)
         if (nameInput.trim()) {
             setSearchName(nameInput.trim())
         }
@@ -79,7 +81,8 @@ export const PlayerReport = (): React.JSX.Element => {
                 </Alert>
             )}
 
-            {loading && <Loading />}
+            {/** FIXED ENDLESS SPINNER ERROR */}
+            {(loading && pressed ) && <Loading />}
 
             {data && data.careerStats.length > 0 && (
                 <>
