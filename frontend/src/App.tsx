@@ -11,6 +11,9 @@ import TopScorers from './pages/TopScorers'
 import PlayerReport from './pages/PlayerReport'
 import React from 'react'
 import LoginModal from './components/LoginModal'
+import TransferPlayer from './pages/TransferPlayer'
+
+
 
 const App = (): React.JSX.Element => {
   const [isLoggedIn, setIsLoggedIn] = React.useState<boolean>(false)
@@ -28,6 +31,7 @@ const App = (): React.JSX.Element => {
           <Route path="/top-scorers" element={<TopScorers />} />
           <Route path="/games" element={<Games />} />
           <Route path="/report" element={<PlayerReport />} />
+          <Route path="/transfer" element={<TransferPlayer />} />
         </Routes>
       </BrowserRouter>
       <Footer />

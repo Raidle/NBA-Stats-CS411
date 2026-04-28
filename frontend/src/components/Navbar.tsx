@@ -33,6 +33,7 @@ export const Navbar = ({ isLoggedIn = false, onLoginClick }: NavbarProps): React
     { path: '/players', label: 'All Players' },
     { path: '/games', label: 'Games' },
     { path: '/report', label: 'Get Player Report' },
+    { path: '/transfer', label: 'Transfer' }
   ]
 
   return (

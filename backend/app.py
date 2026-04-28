@@ -279,6 +279,111 @@ def player_report():
         })
     finally:
         conn.close()
+       
+       
+# TRANSACTION: Transferring a player      
+@app.route("/api/players/transfer", methods=["POST"])
+def transfer_player():
+    data = request.get_json()
+    player_name = data["playerName"]
+    new_team_name = data["newTeamName"]
+
+    conn = get_connection()
+    try:                            
+        with conn.cursor() as cursor:
+            cursor.execute("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")  # only one person can edit the document at a time, the strictest isolation level
+        conn.begin()
+        with conn.cursor() as cursor:                                       # BEGIN TRANSACTION; -> start the transaction
+            # Find player by name
+            cursor.execute("""
+                SELECT playerId, firstName, lastName FROM Player
+                WHERE firstName LIKE %s OR lastName LIKE %s
+                LIMIT 1
+            """, (f"%{player_name}%", f"%{player_name}%"))
+            player = cursor.fetchone()
+            if not player:
+                conn.rollback()
+                return jsonify({"error": "Player not found"}), 404
+
+            # Find team by name
+            cursor.execute("""
+                SELECT teamId, name FROM Team
+                WHERE name LIKE %s
+                LIMIT 1
+            """, (f"%{new_team_name}%",))
+            team = cursor.fetchone()
+            if not team:
+                conn.rollback()
+                return jsonify({"error": "Team not found"}), 404
+
+            player_id = player["playerId"]
+            new_team_id = team["teamId"]
+            
+            # Get player's current team
+            cursor.execute("""
+                SELECT 
+                    t.teamId, 
+                    t.name AS teamName, 
+                    COUNT(*) AS gamesPlayed
+                FROM PlayerGameStats pgs
+                JOIN Team t ON pgs.teamId = t.teamId
+                WHERE pgs.playerId = %s
+                GROUP BY t.teamId, t.name
+                ORDER BY gamesPlayed DESC
+                LIMIT 1
+            """, (player_id,))
+            current = cursor.fetchone()             # returns a single row
+
+            if not current:
+                conn.rollback()
+                return jsonify({"error": "Player has no game stats"}), 404
+            
+            # Get the 5 games that will be moved (before updating)
+            # date is a reserved word in MySQL. Wrap it in backticks:
+            cursor.execute("""
+                SELECT 
+                    pgs.gameId, 
+                    g.gameDate, 
+                    pgs.points, 
+                    pgs.rebounds, 
+                    pgs.assists
+                FROM PlayerGameStats pgs
+                JOIN Game g ON pgs.gameId = g.gameId
+                WHERE pgs.playerId = %s
+                ORDER BY g.gameDate DESC
+                LIMIT 5
+            """, (player_id,))
+            moved_games = cursor.fetchall()
+
+            # Update their 5 most recent games
+            cursor.execute("""                              # UPDATE; -> updating the game information
+                UPDATE PlayerGameStats
+                SET teamId = %s
+                WHERE playerId = %s
+                AND gameId IN (
+                    SELECT gameId FROM (
+                        SELECT gameId 
+                        FROM PlayerGameStats
+                        WHERE playerId = %s
+                        ORDER BY gameId DESC
+                        LIMIT 5
+                    ) AS recent
+                )
+            """, (new_team_id, player_id, player_id))
+
+        conn.commit()                               # COMMIT; -> save the transaction
+        return jsonify({
+            "message": "Player transferred successfully",
+            "playerName": f"{player['firstName']} {player['lastName']}",
+            "fromTeam": current["teamName"],
+            "toTeam": team["name"],
+            "movedGames": moved_games
+        })
+    except Exception as e:
+        conn.rollback()                             # ROLLBACK; -> undo the transaction
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 if __name__ == '__main__':
