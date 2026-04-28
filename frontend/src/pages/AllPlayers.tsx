@@ -6,12 +6,25 @@ import {
     Pagination,
     PaginationItem,
     PaginationLink,
-    Table
+    Table,
+    Spinner
 } from 'reactstrap'
 import Loading from '../components/Loading'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import type PlayerDTO from '../models/DTO/PlayerDTO'
+import AddEditPlayerModal from '../components/ModalComponents/AddEditPlayerModal'
+
+const getPlayerId = (player: PlayerDTO): number | undefined => {
+    return player.id ?? (player as PlayerDTO & { playerId?: number }).playerId;
+};
+
+interface AllPlayersProps {
+    isAdmin?: boolean;
+    onAddPlayer?: () => void;
+    onEditPlayer?: (player: PlayerDTO) => Promise<void>;
+    onDeletePlayer?: (player: PlayerDTO) => void;
+}
 
 const getVisiblePageCount = (width: number): number => {
     if (width < 576) return 4;
@@ -19,14 +32,19 @@ const getVisiblePageCount = (width: number): number => {
     return 10;
 };
 
-export const AllPlayers = (): React.JSX.Element => {
+export const AllPlayers = ({
+    isAdmin = false,
+}: AllPlayersProps): React.JSX.Element => {
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [visiblePageCount, setVisiblePageCount] = useState<number>(10);
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [searchQuery, setSearchQuery] = useState<string>('');
+    const [addEditPlayerModalOpen, setAddEditPlayerModalOpen] = useState<boolean>(false);
+    const [editingPlayer, setEditingPlayer] = useState<PlayerDTO | null>(null);
+    const [loadingPlayerId, setLoadingPlayerId] = useState<number | null>(null);
 
     // Fetch all players when no search, or search results when searching
-    const { isPending: loading, data: playerStats = [], error } = useQuery<PlayerDTO[]>({
+    const { isPending: loading, data: playerStats = [], error, refetch } = useQuery<PlayerDTO[]>({
         queryKey: ['players', searchQuery],
         queryFn: async () => {
             const url = searchQuery
@@ -47,6 +65,18 @@ export const AllPlayers = (): React.JSX.Element => {
         setSearchQuery('');
         setCurrentPage(1);
     };
+
+    const handleDelete = async (player: PlayerDTO): Promise<void> => {
+        if (window.confirm(`Are you sure you want to delete ${player.firstName} ${player.lastName}?`)) {
+            try {
+                await axios.delete(`/players/${getPlayerId(player)}`)
+                await refetch();
+            } catch (error) {
+                console.error('Error deleting player:', error);
+                alert('Failed to delete player. Please try again.');
+            }
+        }
+    }
 
     useEffect(() => {
         const updateVisiblePageCount = (): void => {
@@ -84,94 +114,170 @@ export const AllPlayers = (): React.JSX.Element => {
     }
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-            <h1>NBA Players</h1>
+        <>
+            <AddEditPlayerModal
+                key={`${editingPlayer?.id ?? 'new'}-${addEditPlayerModalOpen ? 'open' : 'closed'}`}
+                isOpen={addEditPlayerModalOpen}
+                toggle={() => {
+                    setAddEditPlayerModalOpen(false);
+                    setEditingPlayer(null);
+                }}
+                player={editingPlayer}
+                onSaveSuccess={async () => {
+                    await refetch();
+                }}
+            />
+            <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h1 className="mb-0">NBA Players</h1>
+                    {isAdmin && (
+                        <Button
+                            color="success"
+                            onClick={() => {
+                                setEditingPlayer(null);
+                                setAddEditPlayerModalOpen(true);
+                            }}
+                        >
+                            Add Player
+                        </Button>
+                    )}
+                </div>
 
-            {/* Search Bar */}
-            <InputGroup className="mb-3">
-                <Input
-                    type="text"
-                    placeholder="Search by player name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSearch();
-                    }}
-                />
-                <Button color="primary" onClick={handleSearch}>
-                    Search
-                </Button>
-                {searchQuery && (
-                    <Button color="secondary" onClick={handleClear}>
-                        Clear
+                {/* Search Bar */}
+                <InputGroup className="mb-3">
+                    <Input
+                        type="text"
+                        placeholder="Search by player name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSearch();
+                        }}
+                    />
+                    <Button color="primary" onClick={handleSearch}>
+                        Search
                     </Button>
+                    {searchQuery && (
+                        <Button color="secondary" onClick={handleClear}>
+                            Clear
+                        </Button>
+                    )}
+                </InputGroup>
+
+                {searchQuery && (
+                    <p className="text-muted mb-3">
+                        Showing results for "{searchQuery}" ({playerStats.length} found)
+                    </p>
                 )}
-            </InputGroup>
 
-            {searchQuery && (
-                <p className="text-muted mb-3">
-                    Showing results for "{searchQuery}" ({playerStats.length} found)
-                </p>
-            )}
-
-            <Table bordered hover responsive>
-                {loading ? (
-                    <tbody>
-                        <tr>
-                            <td colSpan={4} className="text-center">
-                                <Loading />
-                            </td>
-                        </tr>
-                    </tbody>
-                ) : (
-                    <>
-                        <thead>
-                            <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Height (inches)</th>
-                                <th>Body Weight (lbs)</th>
-                            </tr>
-                        </thead>
+                <Table bordered hover responsive>
+                    {loading ? (
                         <tbody>
-                            {paginatedPlayerStats.map((player) => (
-                                <tr key={player.id}>
-                                    <td>{player.firstName}</td>
-                                    <td>{player.lastName}</td>
-                                    <td>{player.heightInches == 0 ? 'N/A' : player.heightInches}</td>
-                                    <td>{player.bodyWeightLbs == 0 ? 'N/A' : player.bodyWeightLbs}</td>
-                                </tr>
-                            ))}
+                            <tr>
+                                <td colSpan={isAdmin ? 5 : 4} className="text-center">
+                                    <Loading />
+                                </td>
+                            </tr>
                         </tbody>
-                    </>
-                )}
-            </Table>
+                    ) : (
+                        <>
+                            <thead>
+                                <tr>
+                                    <th>First Name</th>
+                                    <th>Last Name</th>
+                                    <th>Height (inches)</th>
+                                    <th>Body Weight (lbs)</th>
+                                    {isAdmin && <th>Actions</th>}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedPlayerStats.map((player) => (
+                                    <tr key={player.id}>
+                                        <td>{player.firstName}</td>
+                                        <td>{player.lastName}</td>
+                                        <td>{player.heightInches == 0 ? 'N/A' : player.heightInches}</td>
+                                        <td>{player.bodyWeightLbs == null || player.bodyWeightLbs === 0 ? 'N/A' : player.bodyWeightLbs}</td>
+                                        {isAdmin && (
+                                            <td>
+                                                <div className="d-flex flex-wrap gap-2">
+                                                    <Button
+                                                        color="primary"
+                                                        size="sm"
+                                                        disabled={loadingPlayerId === getPlayerId(player)}
+                                                        onClick={async () => {
+                                                            const playerId = getPlayerId(player);
 
-            {/* Pagination stays the same */}
-            <div className="d-flex justify-content-center">
-                <Pagination aria-label="Player stats pagination">
-                    <PaginationItem disabled={activePage === 1}>
-                        <PaginationLink first href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(1); }} />
-                    </PaginationItem>
-                    <PaginationItem disabled={activePage === 1}>
-                        <PaginationLink previous href="#" onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.max(p - 1, 1)); }} />
-                    </PaginationItem>
-                    {visiblePages.map((pageNumber) => (
-                        <PaginationItem key={pageNumber} active={pageNumber === activePage}>
-                            <PaginationLink href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(pageNumber); }}>
-                                {pageNumber}
-                            </PaginationLink>
+                                                            if (!playerId) {
+                                                                console.error('Player id is missing:', player);
+                                                                return;
+                                                            }
+
+                                                            setLoadingPlayerId(playerId);
+
+                                                            try {
+                                                                const response = await axios.get<PlayerDTO>(`/players/${playerId}`);
+                                                                setEditingPlayer(response.data);
+                                                                setAddEditPlayerModalOpen(true);
+                                                            } catch (error) {
+                                                                console.error('Error fetching player data:', error);
+                                                            } finally {
+                                                                setLoadingPlayerId(null);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {loadingPlayerId === getPlayerId(player) ? (
+                                                            <span className="d-inline-flex align-items-center gap-1">
+                                                                <Spinner size="sm" />
+                                                            </span>
+                                                        ) : (
+                                                            'Edit'
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        color="danger"
+                                                        size="sm"
+                                                        onClick={async () => {
+                                                            await handleDelete(player);
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </>
+                    )}
+                </Table>
+
+                {/* Pagination stays the same */}
+                <div className="d-flex justify-content-center">
+                    <Pagination aria-label="Player stats pagination">
+                        <PaginationItem disabled={activePage === 1}>
+                            <PaginationLink first href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(1); }} />
                         </PaginationItem>
-                    ))}
-                    <PaginationItem disabled={activePage === totalPages || totalPages === 0}>
-                        <PaginationLink next href="#" onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.min(p + 1, totalPages)); }} />
-                    </PaginationItem>
-                    <PaginationItem disabled={activePage === totalPages || totalPages === 0}>
-                        <PaginationLink last href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }} />
-                    </PaginationItem>
-                </Pagination>
+                        <PaginationItem disabled={activePage === 1}>
+                            <PaginationLink previous href="#" onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.max(p - 1, 1)); }} />
+                        </PaginationItem>
+                        {visiblePages.map((pageNumber) => (
+                            <PaginationItem key={pageNumber} active={pageNumber === activePage}>
+                                <PaginationLink href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(pageNumber); }}>
+                                    {pageNumber}
+                                </PaginationLink>
+                            </PaginationItem>
+                        ))}
+                        <PaginationItem disabled={activePage === totalPages || totalPages === 0}>
+                            <PaginationLink next href="#" onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.min(p + 1, totalPages)); }} />
+                        </PaginationItem>
+                        <PaginationItem disabled={activePage === totalPages || totalPages === 0}>
+                            <PaginationLink last href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }} />
+                        </PaginationItem>
+                    </Pagination>
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 

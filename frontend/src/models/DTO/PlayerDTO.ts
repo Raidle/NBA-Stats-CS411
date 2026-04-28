@@ -1,5 +1,5 @@
 export default interface PlayerDTO {
-    id: string;
+    id: number;
     firstName: string;
     lastName: string;
     heightInches: number;

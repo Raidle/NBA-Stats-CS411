@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-from db import run_query
+from db import run_query, get_connection
 
 app = Flask(__name__)
 # CORS = "Cross-Origin Resource Sharing"
@@ -24,6 +24,18 @@ CORS(
 def index():
     return "<h1>Backend is UP!</h1>"
 
+@app.post("/api/login")
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    # Placeholder for authentication logic
+    if username == "admin" and password == "password":
+        return "Login successful!", 200
+    else:
+        return "Invalid credentials", 401
+
 # ROUTE 1: Get all players (basic)
 @app.route("/api/players")
 def get_players():
@@ -42,7 +54,78 @@ def get_players():
     } for row in rows]
     return jsonify(payload)
 
-# ADVANCED QUERY 1: 
+@app.post("/api/players")
+def add_player():
+    data = request.get_json(silent=True) or {}
+    first_name = data.get("firstName")
+    last_name = data.get("lastName")
+    height_inches = data.get("heightInches")
+    weight_lbs = data.get("bodyWeightLbs")
+
+    if not first_name or not last_name:
+        return jsonify({"error": "firstName and lastName are required"}), 400
+
+    next_id_sql = "SELECT COALESCE(MAX(playerId), 0) + 1 AS nextPlayerId FROM Player"
+    next_id_row = run_query(next_id_sql)
+    next_player_id = next_id_row[0]["nextPlayerId"]
+
+    sql = """
+        INSERT INTO Player (playerId, firstName, lastName, heightInches, bodyWeightLbs)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+    run_query(sql, (next_player_id, first_name, last_name, height_inches, weight_lbs))
+    return jsonify({"message": "Player added successfully", "playerId": next_player_id}), 201
+
+# Get player by ID (basic)
+@app.route("/api/players/<int:player_id>")
+def get_player(player_id):
+    sql = """
+        SELECT playerId, firstName, lastName, heightInches, bodyWeightLbs
+        FROM Player
+        WHERE playerId = %s
+    """
+    rows = run_query(sql, (player_id,))
+    if not rows:
+        return jsonify({"error": "Player not found"}), 404
+    row = rows[0]
+    payload = {
+        "playerId": row["playerId"],
+        "firstName": row["firstName"],
+        "lastName": row["lastName"],
+        "heightInches": row["heightInches"],
+        "bodyWeightLbs": row["bodyWeightLbs"]
+    }
+    return jsonify(payload)
+
+@app.delete("/api/players/<int:player_id>")
+def delete_player(player_id):
+    sql = """
+        DELETE FROM Player
+        WHERE playerId = %s
+    """
+    run_query(sql, (player_id,))
+    return jsonify({"message": "Player deleted successfully"})
+
+@app.put("/api/players/<int:player_id>")
+def update_player(player_id):
+    data = request.get_json(silent=True) or {}
+    first_name = data.get("firstName")
+    last_name = data.get("lastName")
+    height_inches = data.get("heightInches")
+    weight_lbs = data.get("bodyWeightLbs")
+
+    if not first_name or not last_name:
+        return jsonify({"error": "firstName and lastName are required"}), 400
+
+    sql = """
+        UPDATE Player
+        SET firstName = %s, lastName = %s, heightInches = %s, bodyWeightLbs = %s
+        WHERE playerId = %s
+    """
+    run_query(sql, (first_name, last_name, height_inches, weight_lbs, player_id))
+    return jsonify({"message": "Player updated successfully"})
+
+# ADVANCED QUERY 1: Leaderboard
 @app.route("/api/players/leader-board")
 def leader_board():
     sql = """
@@ -165,6 +248,38 @@ def search_players():
     } for row in rows]
     return jsonify(payload)
 
+
+# STORED PROCEDURE: Geting a report for a player
+@app.route("/api/players/report")
+def player_report():
+    name = request.args.get("name", "")
+    conn = get_connection()
+    
+    try:
+        with conn.cursor() as cursor:
+            # Find the player by name
+            cursor.execute("""
+                SELECT playerId FROM Player
+                WHERE firstName LIKE %s OR lastName LIKE %s
+                LIMIT 1
+            """, (f"%{name}%", f"%{name}%"))
+            player = cursor.fetchone()
+            
+            if not player:
+                return jsonify({"error": "Player not found"}), 404
+            
+            # Calling the Stored Procedure from GCP MySQL
+            cursor.callproc("GetPlayerPerformance", (player["playerId"],))
+            career_stats = cursor.fetchall()
+            cursor.nextset()
+            team_comparison = cursor.fetchall()
+        return jsonify({
+            "careerStats": career_stats,
+            "teamComparison": team_comparison
+        })
+    finally:
+        conn.close()
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=8000)
-    

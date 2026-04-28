@@ -25,6 +25,14 @@ def run_query(sql, params=None):
     try:
         with conn.cursor() as cursor:
             cursor.execute(sql, params)
+            # cursor.description is None for INSERT/UPDATE/DELETE statements.
+            if cursor.description is None:
+                conn.commit()
+                return {
+                    "affectedRows": cursor.rowcount,
+                    "lastrowid": cursor.lastrowid,
+                }
+
             results = cursor.fetchall()
         return results
     finally:
